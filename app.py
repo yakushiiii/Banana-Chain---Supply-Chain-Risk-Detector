@@ -1,11 +1,15 @@
-import os, tempfile, uuid, json
+import re, subprocess, tempfile, uuid
 import run_syft
-from flask import Flask, jsonify, request, send_file, Response
+from pathlib import Path
 
-app = Flask(__name__)
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
+
+app = FastAPI(title="Banana Chain: Supply Chain Risk Detector")
 
 @app.get("/")
-def home():
+async def root():
     return send_file("index.html")
 
 @app.post("/api/sbom")

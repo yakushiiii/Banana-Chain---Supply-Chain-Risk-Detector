@@ -31,7 +31,7 @@
                     form.append("files", f, f.webkitRelativePath || f.name);
                 }
 
-                const res = await fetch("/api/sbom", { method: "POST", body: form});
+                const res = await fetch("/api/", { method: "POST", body: form});
                 result.textContent = await res.text();
             }
         </script>
