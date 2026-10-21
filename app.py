@@ -1,4 +1,4 @@
-import os, tempfile
+import os, tempfile, uuid, json
 import run_syft
 from flask import Flask, jsonify, request, send_file, Response
 
@@ -10,7 +10,9 @@ def home():
 
 @app.post("/api/sbom")
 def sbom():
-    if "file" not in request.files:
+    
+    #repo_url = body.get("repo_url", "")
+    if "file" in request.files or not repo_url.startswith("https://github.com/"):
         return jsonify({"error": "no file uploaded"}), 400
 
     upload = request.files["file"]
