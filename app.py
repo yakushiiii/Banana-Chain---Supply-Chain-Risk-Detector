@@ -1,0 +1,28 @@
+import os, tempfile
+import run_syft
+from flask import Flask, jsonify, request, send_file, Response
+
+app = Flask(__name__)
+
+@app.get("/")
+def home():
+    return send_file("index.html")
+
+@app.post("/api/sbom")
+def sbom():
+    if "file" not in request.files:
+        return jsonify({"error": "no file uploaded"}), 400
+
+    upload = request.files["file"]
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "upload")
+        upload.save(path)
+        try:
+            sbom = run_syft.generate_sbom(path)
+        except Exception:
+            return jsonify({"error": "could not read file"}), 500
+
+    return jsonify(sbom)
+
+if __name__ == "__main__":
+    app.run(port=5000)
