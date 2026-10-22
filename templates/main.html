@@ -2,10 +2,12 @@
 <html>
     <body>
         <h1>Upload GitHub repo or project files</h1>
-        <input type = "url" id = "url" placeholder="https://github.com/user/repo">
-        <input type="file" name="files" multiple webkitdirectory>
-        <button onclick="upload()">Check</button>
-        <pre id="result"></pre>
+        <form action="/results" method="post" enctype="multipart/form-data">
+            <input type = "url" id = "url" placeholder="https://github.com/user/repo">
+            <input type="file" name="files" multiple webkitdirectory>
+            <button onclick="upload()">Check</button>
+            <pre id="result"></pre>
+        </form>
 
         <script>
             async function upload(){
