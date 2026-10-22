@@ -1,41 +1,22 @@
 <!doctype html>
-<html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Banana Chain</title>
+    </head>
     <body>
         <h1>Upload GitHub repo or project files</h1>
+
+        {% if error %}
+            <p style="color: red;">{{ error }}</p>
+        {% endif %}
+
         <form action="/results" method="post" enctype="multipart/form-data">
-            <input type = "url" id = "url" placeholder="https://github.com/user/repo">
-            <input type="file" name="files" multiple webkitdirectory>
-            <button onclick="upload()">Submit</button>
-            <pre id="result"></pre>
+            <input type = "url" id = "url" name = "url" placeholder="https://github.com/user/repo"> <!--form needs a name so FastAPI could read it-->
+            <input type="file" id="files" name="files" multiple webkitdirectory>
+            <button type="submit">Submit</button>
         </form>
 
-        <script>
-            async function upload(){
-                const link = document.getElementById("link").value.trim();
-                const files = document.getElementbyId("files").files;
-                const result = document.getElementbyId("result");
-
-                if (!link && files.length == 0) {
-                   result.textContent = "Add a GitHub link or choose project files."
-                   return; 
-                }
-
-                const form = new FormData();
-                if(link){
-                    const m = link.match(/^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+?)(\.git)?\/?$/);
-                    if (!m) {
-                        result.textContet = "Please only use Github repo links"
-                        return;
-                    }
-                    form.append("repo", `${m[1]}/${m[2]}`);
-                }
-                for (const f of files){
-                    form.append("files", f, f.webkitRelativePath || f.name);
-                }
-
-                const res = await fetch("/api/", { method: "POST", body: form});
-                result.textContent = await res.text();
-            }
-        </script>
+        <!--We don't need the upload() function!! fastapi already handles form submission thru /results!-->
     </body>
 </html>

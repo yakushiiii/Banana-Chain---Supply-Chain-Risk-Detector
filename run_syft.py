@@ -5,4 +5,4 @@ def generate_sbom(path):
         ["syft", f"dir:{path}", "-o", "cyclonedx-json"],
         capture_output=True, text=True, check=True,
     ) #stores everything about run in result
-    return json.loads(result.stdout, mimetype="application/json") #printed output is the JSON
+    return json.loads(result.stdout) #printed output is the JSON (json.loads doesn't accept mimetype)

@@ -1,28 +1,66 @@
 <!doctype html>
-<html>
+<html lang="en">
     <body>
         <h1>Results</h1>
-        <p>{{ sbom.artifacts | length }} components found</p>
+        
+        <p>
+            {{ sbom.get("components", []) | length }} 
+            components found
+        </p>
 
-        <table>
+        <table border="1">
             <tr>
                 <th>Name</th>
                 <th>Version</th>
                 <th>Type</th>
-                <th>Found in</th>
-               <!-- Add in later: <th>Severity</th> -->
+                <th>Package URL</th>
             </tr>
-            {% for a in sbom.artifacts %}
+
+            {% for component in sbom.get("components", []) %}
             <tr>
-                <td>{{ a.name }}</td>
-                <td>{{ a.version }}</td>
-                <td>{{ a.type }}</td>
-                <td>{{ a.locations[0].path if a.locations else "" }}</td>
+                <td>{{ component.name }}</td>
+                <td>{{ component.version | default("N/A", true) }}</td>
+                <td>{{ component.type }}</td>
+                <td>{{ component.purl | default("N/A", true) }}</td>
             </tr>
             {% endfor %}
         </table>
 
-        <button onclick="history.back()">Scan another project</button>
+        <br>
+
+        <button type="button" onclick="downloadSBOM()">
+            Download CycloneDX JSON
+        </button>
+
+        <button type="button" onclick="window.location.href='/'"> <!--window.location.href guarantees the button takes the users back to homepage-->
+            Scan Another Project
+        </button>
+
+        <script>
+            const sbom = {{ sbom | tojson }};
+
+            function downloadSBOM() {
+                const json = JSON.stringify(sbom, null, 2);
+
+                const blob = new Blob(
+                    [json],
+                    { type: "application/vnd.cyclonedx+json"}
+                );
+
+                const url = URL.createObjectURL(blob);
+
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = "bom.cdx.json";
+
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }
+
+        </script>
         <text>Warning all results will be lost, please save results as CSV or save SBOM as a JSON file!!</text>
     
     </body>
