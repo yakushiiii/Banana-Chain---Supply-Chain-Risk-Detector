@@ -58,7 +58,7 @@ def results(
                 return error_page(request, "There was an error with your respository. Must use a public repository, if repository must remain private try uploading project files instead.")
         try:
             sbom = run_syft.generate_sbom(tmp_dir)
-        except Exception:
+        except Exception as e:
             print("Syft failed:", e)
             return error_page(request, "There was an unforeseen error with one or more of your files.")
         
