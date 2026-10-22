@@ -1,6 +1,29 @@
 <!doctype html>
 <html>
     <body>
-        
+        <h1>Results</h1>
+        <p>{{ sbom.artifacts | length }} components found</p>
+
+        <table>
+            <tr>
+                <th>Name</th>
+                <th>Version</th>
+                <th>Type</th>
+                <th>Found in</th>
+               <!-- Add in later: <th>Severity</th> -->
+            </tr>
+            {% for a in sbom.artifacts %}
+            <tr>
+                <td>{{ a.name }}</td>
+                <td>{{ a.version }}</td>
+                <td>{{ a.type }}</td>
+                <td>{{ a.locations[0].path if a.locations else "" }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <button onclick="history.back()">Scan another project</button>
+        <text>Warning all results will be lost, please save results as CSV or save SBOM as a JSON file!!</text>
+    
     </body>
 </html>
