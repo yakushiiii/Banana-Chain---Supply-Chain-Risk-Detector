@@ -3,16 +3,19 @@ import run_syft
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 app = FastAPI(title="Banana Chain: Supply Chain Risk Detector")
 
-@app.get("/")
-async def root():
-    return send_file("index.html")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-@app.post("/api/sbom")
+@app.get("/")
+def home():
+    return FileResponse("static/main.html")
+
+@app.post("/api/results")
 def sbom():
     
     #repo_url = body.get("repo_url", "")
