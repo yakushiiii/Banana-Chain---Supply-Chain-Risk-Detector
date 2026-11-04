@@ -1,5 +1,6 @@
 import re, subprocess, tempfile, uuid, shutil
 import run_syft
+from services.cyclonedx import InvalidSbom, normalize_sbom
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile, Request
@@ -56,13 +57,33 @@ def results(
             except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
                 print("Clone failed:", e)
                 return error_page(request, "There was an error with your respository. Must use a public repository, if repository must remain private try uploading project files instead.")
+
         try:
             sbom = run_syft.generate_sbom(tmp_dir)
+            components = normalize_sbom(sbom)
+
+        except InvalidSbom as e:
+            print("CycloneDX validation failed:", e)
+            return error_page(
+                request,
+                "The generated SBOM failed CycloneDX validation."
+            )
+
         except Exception as e:
-            print("Syft failed:", e)
-            return error_page(request, "There was an unforeseen error with one or more of your files.")
-        
-        return templates.TemplateResponse(request, "results.html", {"sbom": sbom})
+            print("SBOM generation failed:", e)
+            return error_page(
+                request,
+                "There was an unforeseen error with one or more of your files."
+            )
+
+        return templates.TemplateResponse(
+            request,
+            "results.html",
+            {
+                "sbom": sbom,
+                "components": components,
+            }
+        )
 
 if __name__ == "__main__":
     import uvicorn

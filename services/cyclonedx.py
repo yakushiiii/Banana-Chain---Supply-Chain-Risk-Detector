@@ -54,7 +54,7 @@ def validate_sbom(document: dict) -> None:
   if error is not None:
     location = "/".join(map(str, error.absolute_path)) or "root"
     raise InvalidSbom(f"invalid sbom at {location}: {error.message}")
-  
+
 def normalize_purl(value: str | None) -> str | None:
     """Normalize a Package URL into a consistent representation."""
     if not value or not value.strip():
@@ -65,13 +65,43 @@ def normalize_purl(value: str | None) -> str | None:
     except ValueError as exc:
         raise InvalidSbom(f"Invalid package URL: {value}") from exc
 
+def normalize_scan_path(value: str, scan_root: str | None) -> str:
+    """Remove the temporary scan directory from file paths."""
 
-def normalize_component(component: dict) -> dict:
+    def portable(path: str) -> str:
+        path = path.replace("\\", "/")
+
+        # Convert C:/Users/... into /c/Users/...
+        if len(path) >= 2 and path[1] == ":":
+            path = "/" + path[0].lower() + path[2:]
+
+        return path
+
+    path = portable(value)
+
+    if scan_root:
+        root = portable(scan_root).rstrip("/")
+
+        if path.casefold().startswith(root.casefold() + "/"):
+            return path[len(root) + 1:]
+
+    return path
+
+def normalize_component(
+      component: dict,
+      scan_root: str | None = None
+) -> dict:
     """Convert one CycloneDX component into our internal format."""
 
     # Preserve and consistently order Syft metadata.
     properties = sorted({
-        (prop["name"], prop.get("value", ""))
+        (
+            prop["name"],
+            normalize_scan_path(prop.get("value", ""), scan_root)
+            if prop["name"].startswith("syft:location:")
+            and prop["name"].endswith(":path")
+            else prop.get("value", "")
+        )
         for prop in component.get("properties", [])
     })
 
@@ -101,8 +131,13 @@ def normalize_component(component: dict) -> dict:
     version = component.get("version")
     version = version.strip() if version else None
 
+    name = component["name"].strip()
+
+    if component["type"] == "file":
+        name = normalize_scan_path(name, scan_root)
+
     return {
-        "name": component["name"].strip(),
+        "name": name,
         "version": version or None,
         "purl": normalize_purl(component.get("purl")),
         "type": component["type"].strip().lower(),
@@ -128,10 +163,14 @@ def normalize_sbom(document: dict) -> list[dict]:
 
     validate_sbom(document)
 
+    metadata = document.get("metadata") or {}
+    source_component = metadata.get("component") or {}
+    scan_root = source_component.get("name")
+
     unique = {}
 
     for raw_component in document.get("components", []):
-        component = normalize_component(raw_component)
+        component = normalize_component(raw_component, scan_root)
 
         # Prefer PURL identity; fall back when PURL is missing.
         if component["purl"]:
