@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+jinja2
+python-multipart
+jsonschema[format]>=4.18,<5
+packageurl-python
