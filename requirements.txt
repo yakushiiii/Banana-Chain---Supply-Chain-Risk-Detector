@@ -4,3 +4,6 @@ jinja2
 python-multipart
 jsonschema[format]>=4.18,<5
 packageurl-python
+sqlalchemy>=2.0,<3
+psycopg[binary]>=3.1,<4
+python-dotenv>=1,<2
