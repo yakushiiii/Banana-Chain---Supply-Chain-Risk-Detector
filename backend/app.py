@@ -1,10 +1,12 @@
+import json
 import re
+import shutil
 import subprocess
 import tempfile
-import shutil
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import FastAPI, File, Form, UploadFile, Request
+from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.templating import Jinja2Templates
 
 import run_syft
@@ -24,12 +26,12 @@ def home(request: Request):
 @app.post("/results")
 def results(
     request: Request,
-    url: str | None = Form(None), 
-    files: list[UploadFile] = File([])
+    url: Annotated[str | None, Form()] = None, 
+    files: Annotated[list[UploadFile] | None, File()] = None,
     ):
     # Browsers send an emtpy "file" when nothing was picked, so filter those out
 
-    files = [f for f in files if f.filename]
+    files = [f for f in (files or []) if f.filename]
     url = url.strip() if url else None
 
     if not url and not files:
@@ -60,7 +62,7 @@ def results(
                 return error_page(request, "There was an error with your respository. Must use a public repository, if repository must remain private try uploading project files instead.")
         try:
             sbom = run_syft.generate_sbom(tmp_dir)
-        except Exception as e:
+        except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError) as e:
             print("Syft failed:", e)
             return error_page(request, "There was an unforeseen error with one or more of your files.")
         
