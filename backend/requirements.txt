@@ -2,7 +2,9 @@ fastapi
 uvicorn[standard]
 jinja2
 python-multipart
-httpx
+httpx2
 pytest
 ruff
 redis
+pytest
+python-multipart

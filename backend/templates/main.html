@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Banana Chain</title>
+    </head>
+    <body>
+        <h1>Upload GitHub repo or project files</h1>
+
+        {% if error %}
+            <p style="color: red;">{{ error }}</p>
+        {% endif %}
+
+        <form action="/results" method="post" enctype="multipart/form-data">
+            <input type = "url" id = "url" name = "url" placeholder="https://github.com/user/repo"> <!--form needs a name so FastAPI could read it-->
+            <input type="file" id="files" name="files" multiple webkitdirectory>
+            <button type="submit">Submit</button>
+        </form>
+
+        <!--We don't need the upload() function!! fastapi already handles form submission thru /results!-->
+    </body>
+</html>
