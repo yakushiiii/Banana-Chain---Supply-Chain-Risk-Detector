@@ -1,6 +1,7 @@
 import json
 import subprocess
 
+
 def generate_sbom(path):
     result = subprocess.run(
         ["syft", f"dir:{path}", "-o", "cyclonedx-json"],
