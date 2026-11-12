@@ -4,8 +4,8 @@
         <h1>Results</h1>
         
         <p>
-            {{ sbom.get("components", []) | length }} 
-            components found
+            {{ components | length }} unique components found
+            ({{ sbom.get("components", []) | length }} raw SBOM entries)
         </p>
 
         <table border="1">
@@ -16,7 +16,7 @@
                 <th>Package URL</th>
             </tr>
 
-            {% for component in sbom.get("components", []) %}
+            {% for component in components %}
             <tr>
                 <td>{{ component.name }}</td>
                 <td>{{ component.version | default("N/A", true) }}</td>
