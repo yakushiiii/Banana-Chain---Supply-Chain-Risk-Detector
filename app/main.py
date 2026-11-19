@@ -20,6 +20,10 @@ def error_page(request: Request, message: str):
 def home(request: Request):
     return templates.TemplateResponse(request, "main.html")
 
+@app.get("/health")
+def health():
+    return {"api": "ok", "db": "ok"}
+
 @app.post("/results")
 def results(
     request: Request,
