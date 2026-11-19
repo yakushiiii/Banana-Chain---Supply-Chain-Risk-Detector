@@ -1,16 +1,16 @@
-import re, subprocess, tempfile, uuid, shutil
-import run_syft, services.clone
+import tempfile, uuid, shutil
+import run_syft
 from pathlib import Path
+from app.schemas import ScanContext
+from app.services.clone import clone_repo, CloneError
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 app = FastAPI(title="Banana Chain: Supply Chain Risk Detector")
 templates = Jinja2Templates(directory="templates")
-
-GITHUB_RE = re.compile(r"^https://github\.com/[\w.-]+/[\w.-]+?(\.git)?/?$")
 
 def error_page(request: Request, message: str):
     return templates.TemplateResponse(request, "main.html", {"error": message})
@@ -29,15 +29,12 @@ def results(
 
     files = [f for f in files if f.filename]
     url = url.strip() if url else None
+    scan_id = uuid.uuid4()
 
     if not url and not files:
         return error_page(request, "Enter a URL or upload files.")
     if url and files:
         return error_page(request, "Choose either a URL or upload files.")
-    if url and not GITHUB_RE.match(url):
-        return error_page(request, "Enter a valid URL or upload files.")
-
-
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
@@ -49,13 +46,13 @@ def results(
                     shutil.copyfileobj(f.file, out)
         else:
             try:
-                subprocess.run(
-                    ["git", "clone", "--depth", "1", url, str(tmp_dir / "repo")],
-                    check=True, timeout=60,
-                )
-            except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+                ctx = ScanContext(scan_id=scan_id, repo_url=url, workspace_path=tmp_dir / str(scan_id))
+                clone_repo(ctx)
+            except ValidationError: 
+                return error_page(request, "Enter a valid GitHub repo URL, like https://github.com/owner/repo.")
+            except (CloneError) as e:
                 print("Clone failed:", e)
-                return error_page(request, "There was an error with your respository. Must use a public repository, if repository must remain private try uploading project files instead.")
+                return error_page(request, e.message)
         try:
             sbom = run_syft.generate_sbom(tmp_dir)
         except Exception as e:

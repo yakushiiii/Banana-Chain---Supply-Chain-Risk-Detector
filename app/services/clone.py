@@ -64,14 +64,21 @@ def clone_repo(ctx, max_mb=MAX_MB, timeout=TIMEOUT, token=None):
     env = os.environ.copy()
     env["GIT_TERMINAL_PROMPT"] = "0"
     try:
-        result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=timeout)
+        proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
+        _, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired as e:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        proc.communicate()
+
         shutil.rmtree(dest, ignore_errors=True)
         raise CloneError(f"Clone timed out after {timeout}s", 504) from e
 
-    if result.returncode != 0:
+    if proc.returncode != 0:
         shutil.rmtree(dest, ignore_errors=True)
-        raise CloneError(f"failed: {result.stderr[:500]}", 502)
+        raise CloneError(f"failed: {stderr[:500]}", 502)
 
     sha_cmd = ["git", "-C", dest, "rev-parse", "HEAD"]
     sha_result = subprocess.run(sha_cmd, env=env, capture_output=True, text=True, timeout=timeout)
