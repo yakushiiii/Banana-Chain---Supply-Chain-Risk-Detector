@@ -8,10 +8,34 @@ export type ComponentRow = {
   rank: number // higher = worse, used for sorting
 }
 
+/** The complete CycloneDX document returned by Syft. */
+export type CycloneDxBom = {
+  bomFormat: 'CycloneDX'
+  specVersion: string
+  [field: string]: unknown
+}
+
 export type ScanResult = {
   component_count: number
   vulns_ok: boolean
   components: ComponentRow[]
+  sbom: CycloneDxBom
+}
+
+/** Download the original SBOM instead of reconstructing it from result rows. */
+export function downloadSbom(sbom: CycloneDxBom): void {
+  const blob = new Blob([JSON.stringify(sbom, null, 2)], {
+    type: 'application/vnd.cyclonedx+json',
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'bom.cdx.json'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  // Allow the browser to start the download before releasing the object URL.
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 export async function scanRepo(

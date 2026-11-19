@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchHealth, type HealthResponse } from './api/health'
-import { scanRepo, type ScanResult } from './api/scan'
+import { downloadSbom, scanRepo, type ScanResult } from './api/scan'
 import ResultsTable from './ResultsTable'
 
 type Status = 'loading' | 'ok' | 'error'
@@ -229,7 +229,16 @@ export default function App() {
         {/* Results Section */}
         {result && (
           <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-xs">
-            <h2 className="text-lg font-semibold text-gray-900">Results</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-gray-900">Results</h2>
+              <button
+                type="button"
+                onClick={() => downloadSbom(result.sbom)}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              >
+                Download CycloneDX JSON
+              </button>
+            </div>
             {!result.vulns_ok && (
               <p className="mt-2 text-sm text-red-600">
                 Could not reach the OSV database, so vulnerabilities were not checked.
