@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchHealth, type HealthResponse } from './api/health'
 import { scanRepo, type ScanResult } from './api/scan'
 import ResultsTable from './ResultsTable'
+import SecuritySummary from './SecuritySummary'
 
 type Status = 'loading' | 'ok' | 'error'
 type Tab = 'github' | 'upload'
@@ -35,6 +36,7 @@ export default function App() {
   const [githubUrl, setGithubUrl] = useState('')
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null)
   const [result, setResult] = useState<ScanResult | null>(null)
+  const [scannedTarget, setScannedTarget] = useState<string | null>(null)
   const [scanError, setScanError] = useState<string | null>(null)
   const [scanning, setScanning] = useState(false)
 
@@ -74,12 +76,13 @@ export default function App() {
     }
 
     setScanning(true)
+    const target = activeTab === 'github' ? githubUrl.trim() : `${selectedFiles?.length ?? 1} uploaded file(s)`
     try {
-      setResult(
-        await scanRepo(
-          activeTab === 'github' ? { url: githubUrl.trim() } : { files: selectedFiles! },
-        ),
+      const res = await scanRepo(
+        activeTab === 'github' ? { url: githubUrl.trim() } : { files: selectedFiles! },
       )
+      setResult(res)
+      setScannedTarget(target)
     } catch (err) {
       setScanError((err as Error).message)
     } finally {
@@ -228,13 +231,37 @@ export default function App() {
 
         {/* Results Section */}
         {result && (
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-xs">
-            <h2 className="text-lg font-semibold text-gray-900">Results</h2>
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-xs space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Scan Results</h2>
+                {scannedTarget && (
+                  <p className="mt-0.5 max-w-md truncate font-mono text-xs text-gray-500">
+                    Target: {scannedTarget}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setResult(null)
+                  setScannedTarget(null)
+                  setScanError(null)
+                }}
+                className="text-xs font-medium text-gray-500 underline hover:text-gray-700"
+              >
+                Clear Results
+              </button>
+            </div>
+
             {!result.vulns_ok && (
-              <p className="mt-2 text-sm text-red-600">
+              <p className="rounded-md border border-yellow-200 bg-yellow-50 p-2.5 text-xs text-yellow-800">
                 Could not reach the OSV database, so vulnerabilities were not checked.
               </p>
             )}
+
+            <SecuritySummary components={result.components} vulnsOk={result.vulns_ok} />
+
             <ResultsTable components={result.components} />
           </div>
         )}
