@@ -107,7 +107,7 @@ def api_scan(
             raise HTTPException(500, "Syft could not scan these files.")
 
     rows, vulns_ok = vulns.build_rows(sbom)
-    return {"component_count": len(rows), "vulns_ok": vulns_ok, "components": rows}
+    return {"component_count": len(rows), "vulns_ok": vulns_ok, "components": rows, "sbom": sbom}
 
 if __name__ == "__main__":
     import uvicorn
