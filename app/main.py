@@ -4,14 +4,18 @@ import vulns
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+
+from app.pipeline.ingest.url import InvalidRepoUrl, validate_and_normalize_github_url
 
 app = FastAPI(title="Banana Chain: Supply Chain Risk Detector")
 templates = Jinja2Templates(directory="templates")
 
-GITHUB_RE = re.compile(r"^https://github\.com/[\w.-]+/[\w.-]+?(\.git)?/?$")
+@app.exception_handler(InvalidRepoUrl)
+async def invalid_repo_url_handler(request: Request, exc: InvalidRepoUrl):
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 def error_page(request: Request, message: str):
     return templates.TemplateResponse(request, "main.html", {"error": message})
@@ -35,8 +39,11 @@ def results(
         return error_page(request, "Enter a URL or upload files.")
     if url and files:
         return error_page(request, "Choose either a URL or upload files.")
-    if url and not GITHUB_RE.match(url):
-        return error_page(request, "Enter a valid URL or upload files.")
+    if url:
+        try:
+            url, _owner, _repo = validate_and_normalize_github_url(url)
+        except InvalidRepoUrl as e:
+            return error_page(request, str(e))
 
 
 
@@ -80,8 +87,8 @@ def api_scan(
         raise HTTPException(400, "Enter a URL or upload files.")
     if url and files:
         raise HTTPException(400, "Choose either a URL or upload files.")
-    if url and not GITHUB_RE.match(url):
-        raise HTTPException(400, "Enter a valid GitHub URL or upload files.")
+    if url:
+        url, _owner, _repo = validate_and_normalize_github_url(url)
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
