@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "gen:api": "openapi-typescript ${API_URL:-http://127.0.0.1:5000}/openapi.json -o src/api/schema.d.ts"
+    "gen:api": "node scripts/gen-api.mjs"
   },
   "dependencies": {
     "react": "^19.3.1",

@@ -7,8 +7,10 @@ from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadF
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+from app.api.scans import router as scans_router
 
 app = FastAPI(title="Banana Chain: Supply Chain Risk Detector")
+app.include_router(scans_router)
 templates = Jinja2Templates(directory="templates")
 
 GITHUB_RE = re.compile(r"^https://github\.com/[\w.-]+/[\w.-]+?(\.git)?/?$")

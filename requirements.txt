@@ -7,3 +7,7 @@ alembic
 psycopg[binary]
 pytest
 pydantic-settings
+# Async scan API (Issue #34)
+celery[redis]
+httpx
+pydantic-settings

@@ -1,0 +1,5 @@
+app/main.py whitespace=cr-at-eol
+frontend/package.json whitespace=cr-at-eol
+frontend/vite.config.ts whitespace=cr-at-eol
+frontend/src/api/schema.d.ts whitespace=cr-at-eol
+requirements.txt whitespace=cr-at-eol
