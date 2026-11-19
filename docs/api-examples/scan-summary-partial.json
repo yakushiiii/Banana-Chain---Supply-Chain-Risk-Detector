@@ -1,0 +1,16 @@
+{
+  "scan_id": "9bddcb8d-6e2b-49c5-bf84-32c07dc3d81d",
+  "component_count": 31,
+  "assessed_count": 25,
+  "not_assessed_count": 6,
+  "vulnerabilities_by_band": {
+    "critical": 1,
+    "high": 2,
+    "medium": 2,
+    "low": 1,
+    "none": 0,
+    "unknown": 0
+  },
+  "max_score": 9.8,
+  "findings_count": 1
+}

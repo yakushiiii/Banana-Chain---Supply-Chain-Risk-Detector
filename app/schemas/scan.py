@@ -9,11 +9,19 @@ class ScanStatus(str, Enum):
     """Possible states in the SBOM scanning pipeline."""
 
     QUEUED = "queued"
+    # Existing persisted statuses are retained for backwards compatibility.
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
     CLONING = "cloning"
     SCANNING = "scanning"
     NORMALIZING = "normalizing"
     PERSISTING = "persisting"
+    CHECKING_FILES = "checking_files"
+    MATCHING = "matching"
+    SCORING = "scoring"
     COMPLETED = "completed"
+    # SBOM saved but vulnerability assessment is incomplete.
+    PARTIAL = "partial"
     FAILED = "failed"
 
 class ScanCreate(BaseModel):

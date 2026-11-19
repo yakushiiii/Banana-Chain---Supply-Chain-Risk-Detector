@@ -1,0 +1,7 @@
+{
+  "kind": "suspicious_dependency",
+  "ecosystem": "PyPI",
+  "path": "requirements.txt",
+  "severity": "medium",
+  "message": "Example pipeline finding for frontend mocks."
+}
