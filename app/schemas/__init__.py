@@ -1,6 +1,10 @@
 from .component import Component, ComponentProperty, Confidence
 from .context import ScanContext
 from .scan import ScanStatus, ScanCreate, ScanRead
+from .vulnerability import (
+    Vulnerability, VulnerabilityReference, ComponentVulnerability,
+    Finding, ComponentScore, ScanSummary, SeverityBand, AssessmentStatus,
+)
 
 __all__ = [
     "Component",
@@ -10,4 +14,12 @@ __all__ = [
     "ScanStatus",
     "ScanCreate",
     "ScanRead",
+    "Vulnerability",
+    "VulnerabilityReference",
+    "ComponentVulnerability",
+    "Finding",
+    "ComponentScore",
+    "ScanSummary",
+    "SeverityBand",
+    "AssessmentStatus",
 ]
