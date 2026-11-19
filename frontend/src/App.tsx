@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchHealth, type HealthResponse } from './api/health'
+import { scanRepo, type ScanResult } from './api/scan'
+import ResultsTable from './ResultsTable'
 
 type Status = 'loading' | 'ok' | 'error'
 type Tab = 'github' | 'upload'
@@ -28,11 +30,13 @@ export default function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Scanner dummy state
+  // Scanner state
   const [activeTab, setActiveTab] = useState<Tab>('github')
   const [githubUrl, setGithubUrl] = useState('')
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null)
-  const [dummyResult, setDummyResult] = useState<string | null>(null)
+  const [result, setResult] = useState<ScanResult | null>(null)
+  const [scanError, setScanError] = useState<string | null>(null)
+  const [scanning, setScanning] = useState(false)
 
   useEffect(() => {
     const check = () =>
@@ -55,24 +59,37 @@ export default function App() {
   const apiStatus: Status = loading ? 'loading' : health?.api === 'ok' ? 'ok' : 'error'
   const dbStatus: Status = loading ? 'loading' : health?.db === 'ok' ? 'ok' : 'error'
 
-  const handleDummySubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (activeTab === 'github') {
-      const url = githubUrl.trim() || 'https://github.com/pallets/flask'
-      setDummyResult(`[Dummy] Scanning GitHub repository: ${url} (Simulated)`)
-    } else {
-      const count = selectedFiles ? selectedFiles.length : 0
-      setDummyResult(
-        count > 0
-          ? `[Dummy] Analyzing ${count} uploaded project file(s) (Simulated)`
-          : `[Dummy] Uploaded mock repository archive (Simulated)`
+    setResult(null)
+    setScanError(null)
+
+    if (activeTab === 'github' && !githubUrl.trim()) {
+      setScanError('Enter a GitHub URL.')
+      return
+    }
+    if (activeTab === 'upload' && (!selectedFiles || selectedFiles.length === 0)) {
+      setScanError('Choose at least one file.')
+      return
+    }
+
+    setScanning(true)
+    try {
+      setResult(
+        await scanRepo(
+          activeTab === 'github' ? { url: githubUrl.trim() } : { files: selectedFiles! },
+        ),
       )
+    } catch (err) {
+      setScanError((err as Error).message)
+    } finally {
+      setScanning(false)
     }
   }
 
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-12">
-      <div className="mx-auto max-w-xl space-y-8">
+      <div className="mx-auto max-w-4xl space-y-8">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-900">Banana Chain</h1>
           <p className="mt-1 text-gray-600">Software Supply Chain Risk & Vulnerability Detector</p>
@@ -91,7 +108,7 @@ export default function App() {
               type="button"
               onClick={() => {
                 setActiveTab('github')
-                setDummyResult(null)
+                { setResult(null); setScanError(null) }
               }}
               className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${
                 activeTab === 'github'
@@ -105,7 +122,7 @@ export default function App() {
               type="button"
               onClick={() => {
                 setActiveTab('upload')
-                setDummyResult(null)
+                { setResult(null); setScanError(null) }
               }}
               className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${
                 activeTab === 'upload'
@@ -117,7 +134,7 @@ export default function App() {
             </button>
           </div>
 
-          <form onSubmit={handleDummySubmit} className="mt-5 space-y-4">
+          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
             {activeTab === 'github' ? (
               <div className="space-y-3">
                 <label htmlFor="github-url" className="block text-sm font-medium text-gray-700">
@@ -142,9 +159,10 @@ export default function App() {
                 </div>
                 <button
                   type="submit"
+                  disabled={scanning}
                   className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-xs hover:bg-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >
-                  Analyze GitHub Repository
+                  {scanning ? 'Scanning…' : 'Analyze GitHub Repository'}
                 </button>
               </div>
             ) : (
@@ -192,21 +210,34 @@ export default function App() {
                 </div>
                 <button
                   type="submit"
+                  disabled={scanning}
                   className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-xs hover:bg-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >
-                  Upload & Analyze Repo
+                  {scanning ? 'Scanning…' : 'Upload & Analyze Repo'}
                 </button>
               </div>
             )}
           </form>
 
-          {/* Dummy Feedback message */}
-          {dummyResult && (
-            <div className="mt-4 rounded-lg bg-indigo-50 p-3 text-sm text-indigo-800 border border-indigo-200">
-              {dummyResult}
+          {scanError && (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              {scanError}
             </div>
           )}
         </div>
+
+        {/* Results Section */}
+        {result && (
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-xs">
+            <h2 className="text-lg font-semibold text-gray-900">Results</h2>
+            {!result.vulns_ok && (
+              <p className="mt-2 text-sm text-red-600">
+                Could not reach the OSV database, so vulnerabilities were not checked.
+              </p>
+            )}
+            <ResultsTable components={result.components} />
+          </div>
+        )}
 
         {/* System Status Section */}
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-xs">
@@ -224,4 +255,3 @@ export default function App() {
     </main>
   )
 }
-

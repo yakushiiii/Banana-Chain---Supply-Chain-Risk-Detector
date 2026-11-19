@@ -1,0 +1,6 @@
+# Vulnerable: requests, urllib3, PyYAML | Clean: six, idna
+requests==2.32.5   # CVE-2026-25645, fixed in 2.33.0
+urllib3==2.6.3     # CVE-2026-44431 (+4 more), fixed in 2.7.0+
+PyYAML==5.3.1      # CVE-2020-14343, fixed in 5.4
+six==1.17.0
+idna==3.20
