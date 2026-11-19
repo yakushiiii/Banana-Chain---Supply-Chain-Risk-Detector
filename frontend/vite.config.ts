@@ -13,6 +13,7 @@ export default defineConfig({
     // API_URL is read by Node (not the browser), e.g. http://api:5000 inside Compose.
     proxy: {
       '/health': process.env.API_URL ?? 'http://127.0.0.1:5000',
+      '/api': process.env.API_URL ?? 'http://127.0.0.1:5000',
     },
   },
 })
