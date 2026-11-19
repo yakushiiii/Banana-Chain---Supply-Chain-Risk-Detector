@@ -6,4 +6,4 @@ sqlalchemy
 alembic
 psycopg[binary]
 pytest
-pydantic-settings
+pydantic-settingsredis>=5,<9
