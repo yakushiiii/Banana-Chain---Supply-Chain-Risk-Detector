@@ -1,5 +1,10 @@
-import os, re, shutil, signal, requests, subprocess
-from app.schemas import ScanContext
+import os
+import re
+import shutil
+import signal
+import subprocess
+
+import requests
 
 MAX_MB = 500
 GITHUB_URL = re.compile(r"https://github[.]com/([A-Za-z0-9-]+)[/]([A-Za-z0-9-._]+?)(?:[.]git)?/?")
@@ -64,7 +69,7 @@ def clone_repo(ctx, max_mb=MAX_MB, timeout=TIMEOUT, token=None):
     env = os.environ.copy()
     env["GIT_TERMINAL_PROMPT"] = "0"
     try:
-        proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
+        proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True, check=False)
         _, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired as e:
         try:
@@ -81,7 +86,7 @@ def clone_repo(ctx, max_mb=MAX_MB, timeout=TIMEOUT, token=None):
         raise CloneError(f"failed: {stderr[:500]}", 502)
 
     sha_cmd = ["git", "-C", dest, "rev-parse", "HEAD"]
-    sha_result = subprocess.run(sha_cmd, env=env, capture_output=True, text=True, timeout=timeout)
+    sha_result = subprocess.run(sha_cmd, env=env, capture_output=True, text=True, timeout=timeout, check=False)
 
     if sha_result.returncode != 0:
         shutil.rmtree(dest, ignore_errors=True)

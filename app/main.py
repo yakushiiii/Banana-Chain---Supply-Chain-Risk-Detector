@@ -1,13 +1,22 @@
-import tempfile, uuid, shutil
-import run_syft
+import shutil
+import tempfile
+import uuid
 from pathlib import Path
-from app.schemas import ScanContext
-from app.services.clone import clone_repo, CloneError
+from typing import Annotated
 
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import (
+    FastAPI,
+    File,
+    Form,
+    Request,
+    UploadFile,
+)
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
+
+import run_syft
+from app.schemas import ScanContext
+from app.services.clone import CloneError, clone_repo
 
 app = FastAPI(title="Banana Chain: Supply Chain Risk Detector")
 templates = Jinja2Templates(directory="templates")
@@ -22,12 +31,12 @@ def home(request: Request):
 @app.post("/results")
 def results(
     request: Request,
-    url: str | None = Form(None),
-    files: list[UploadFile] = File([])
+    url: Annotated[str | None, Form()] = None,
+    files: Annotated[list[UploadFile] | None, File()] = None,
     ):
     # Browsers send an emtpy "file" when nothing was picked, so filter those out
 
-    files = [f for f in files if f.filename]
+    files = [f for f in (files or []) if f.filename]
     url = url.strip() if url else None
     scan_id = uuid.uuid4()
 
@@ -55,7 +64,7 @@ def results(
                 return error_page(request, e.message)
         try:
             sbom = run_syft.generate_sbom(tmp_dir)
-        except Exception as e:
+        except Exception as e: # noqa: BLE001 - last-resort handler so users see an error page, not a 500
             print("Syft failed:", e)
             return error_page(request, "There was an unforeseen error with one or more of your files.")
 

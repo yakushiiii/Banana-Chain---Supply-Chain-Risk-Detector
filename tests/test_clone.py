@@ -9,10 +9,9 @@ from uuid import uuid4
 import pytest
 import requests
 
-import app.services.clone as clone
 from app.schemas.context import ScanContext
+from app.services import clone
 from app.services.clone import CloneError, check_repo, clone_repo, parse_github_url
-
 
 # ---------- helpers ----------
 
@@ -55,7 +54,7 @@ def make_fake_git(tmp_path, script):
 
 def process_is_dead(pid):
     """True if pid is gone or a zombie (killed but not yet reaped). Works on macOS and Linux."""
-    out = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True)
+    out = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True, check=False)
     stat = out.stdout.strip()
     return stat == "" or stat.startswith("Z")
 
