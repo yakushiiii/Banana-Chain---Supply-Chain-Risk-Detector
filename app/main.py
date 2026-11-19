@@ -1,5 +1,5 @@
 import re, subprocess, tempfile, uuid, shutil
-import run_syft
+import run_syft, services.clone
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile, Request
