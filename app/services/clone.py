@@ -69,7 +69,7 @@ def clone_repo(ctx, max_mb=MAX_MB, timeout=TIMEOUT, token=None):
     env = os.environ.copy()
     env["GIT_TERMINAL_PROMPT"] = "0"
     try:
-        proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True, check=False)
+        proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
         _, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired as e:
         try:
