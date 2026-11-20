@@ -6,6 +6,7 @@ from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadF
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+import run_syft, run_grype
 
 app = FastAPI(title="Banana Chain: Supply Chain Risk Detector")
 templates = Jinja2Templates(directory="templates")
@@ -61,8 +62,20 @@ def results(
         except Exception as e:
             print("Syft failed:", e)
             return error_page(request, "There was an unforeseen error with one or more of your files.")
+
+        try:
+            vulns = run_grype.scan_sbom(sbom)
+            findings_text = run_grype.format_findings(vulns)
+
+            return templates.TemplateResponse(
+                request, "results.html",
+                {"sbom": sbom, "vulns": vulns, "findings_text": findings_text},
+            )
+        except run_grype.GrypeError as e:
+            print("Grype failed:", e)
+            return error_page(request, "There was an unforeseen error with one or more of your files (Grype).")
         
-        return templates.TemplateResponse(request, "results.html", {"sbom": sbom})
+        return templates.TemplateResponse(request, "results.html", {"sbom": sbom, "vulns": vulns})
 
 if __name__ == "__main__":
     import uvicorn
