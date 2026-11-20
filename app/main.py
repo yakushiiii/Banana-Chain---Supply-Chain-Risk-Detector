@@ -1,27 +1,17 @@
-import shutil
-import tempfile
-import uuid
-from pathlib import Path
-from typing import Annotated
-
-from fastapi import (
-    FastAPI,
-    File,
-    Form,
-    HTTPException,
-    Request,
-    UploadFile,
-)
-from fastapi.templating import Jinja2Templates
-from pydantic import ValidationError
-
+import re, subprocess, tempfile, uuid, shutil
 import run_syft
 import vulns
-from app.schemas import ScanContext
-from app.services.clone import CloneError, clone_repo
+from pathlib import Path
+
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile, Request
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 
 app = FastAPI(title="Banana Chain: Supply Chain Risk Detector")
 templates = Jinja2Templates(directory="templates")
+
+GITHUB_RE = re.compile(r"^https://github\.com/[\w.-]+/[\w.-]+?(\.git)?/?$")
 
 def error_page(request: Request, message: str):
     return templates.TemplateResponse(request, "main.html", {"error": message})
@@ -37,19 +27,22 @@ def health():
 @app.post("/results")
 def results(
     request: Request,
-    url: Annotated[str | None, Form()] = None,
-    files: Annotated[list[UploadFile] | None, File()] = None,
+    url: str | None = Form(None),
+    files: list[UploadFile] = File([])
     ):
     # Browsers send an emtpy "file" when nothing was picked, so filter those out
 
-    files = [f for f in (files or []) if f.filename]
+    files = [f for f in files if f.filename]
     url = url.strip() if url else None
-    scan_id = uuid.uuid4()
 
     if not url and not files:
         return error_page(request, "Enter a URL or upload files.")
     if url and files:
         return error_page(request, "Choose either a URL or upload files.")
+    if url and not GITHUB_RE.match(url):
+        return error_page(request, "Enter a valid URL or upload files.")
+
+
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
@@ -61,16 +54,16 @@ def results(
                     shutil.copyfileobj(f.file, out)
         else:
             try:
-                ctx = ScanContext(scan_id=scan_id, repo_url=url, workspace_path=tmp_dir / str(scan_id))
-                clone_repo(ctx)
-            except ValidationError: 
-                return error_page(request, "Enter a valid GitHub repo URL, like https://github.com/owner/repo.")
-            except (CloneError) as e:
+                subprocess.run(
+                    ["git", "clone", "--depth", "1", url, str(tmp_dir / "repo")],
+                    check=True, timeout=60,
+                )
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
                 print("Clone failed:", e)
-                return error_page(request, e.message)
+                return error_page(request, "There was an error with your respository. Must use a public repository, if repository must remain private try uploading project files instead.")
         try:
             sbom = run_syft.generate_sbom(tmp_dir)
-        except Exception as e: # noqa: BLE001 - last-resort handler so users see an error page, not a 500
+        except Exception as e:
             print("Syft failed:", e)
             return error_page(request, "There was an unforeseen error with one or more of your files.")
 
@@ -81,17 +74,18 @@ def results(
 
 @app.post("/api/scan")
 def api_scan(
-    url: Annotated[str | None, Form()] = None,
-    files: Annotated[list[UploadFile] | None, File()] = None,
+    url: str | None = Form(None),
+    files: list[UploadFile] = File([]),
 ):
-    files = [f for f in (files or []) if f.filename]
+    files = [f for f in files if f.filename]
     url = url.strip() if url else None
-    scan_id = uuid.uuid4()
 
     if not url and not files:
         raise HTTPException(400, "Enter a URL or upload files.")
     if url and files:
         raise HTTPException(400, "Choose either a URL or upload files.")
+    if url and not GITHUB_RE.match(url):
+        raise HTTPException(400, "Enter a valid GitHub URL or upload files.")
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
@@ -103,18 +97,18 @@ def api_scan(
                     shutil.copyfileobj(f.file, out)
         else:
             try:
-                ctx = ScanContext(scan_id=scan_id, repo_url=url, workspace_path=tmp_dir / str(scan_id))
-                clone_repo(ctx)
-            except ValidationError as e:
-                raise HTTPException(400, "Enter a valid GitHub repo URL.") from e
-            except CloneError as e:
+                subprocess.run(
+                    ["git", "clone", "--depth", "1", url, str(tmp_dir / "repo")],
+                    check=True, timeout=60,
+                )
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
                 print("Clone failed:", e)
-                raise HTTPException(e.error_code, e.message) from e
+                raise HTTPException(400, "Could not clone that repository. It must be public.")
         try:
             sbom = run_syft.generate_sbom(tmp_dir)
-        except Exception as e:  
+        except Exception as e:
             print("Syft failed:", e)
-            raise HTTPException(500, "Syft could not scan these files.") from e
+            raise HTTPException(500, "Syft could not scan these files.")
 
     rows, vulns_ok = vulns.build_rows(sbom)
     return {"component_count": len(rows), "vulns_ok": vulns_ok, "components": rows}

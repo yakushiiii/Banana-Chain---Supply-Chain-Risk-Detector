@@ -9,4 +9,3 @@ ruff
 redis
 pytest
 python-multipart
-requests
