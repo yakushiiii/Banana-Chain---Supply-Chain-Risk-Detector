@@ -1,4 +1,6 @@
-import json, subprocess
+import json
+import subprocess
+
 
 def generate_sbom(path):
     result = subprocess.run(

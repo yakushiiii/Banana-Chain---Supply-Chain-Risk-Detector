@@ -102,3 +102,42 @@ def write_findings(findings: list[dict], path: str | Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(format_findings(findings), encoding="utf-8")
     return path
+
+
+# Higher number = worse. Same ranks the old vulns.py used, plus Grype's "Negligible".
+RANK = {"Critical": 4, "High": 3, "Medium": 2, "Low": 1, "Negligible": 1, "Unknown": 0, "None": -1}
+
+
+def rows_from_findings(sbom: dict, findings: list[dict]) -> list[dict]:
+    """One row per SBOM component with a vuln count and its worst severity.
+
+    Same row shape the old vulns.build_rows returned, so the results page and
+    /api/scan keep working. Components with no purl or cpe can't be matched by
+    Grype, so they stay "Not checked".
+    """
+    by_purl: dict = {}
+    by_name_version: dict = {}
+    for f in findings:
+        by_purl.setdefault(f["purl"], []).append(f)
+        by_name_version.setdefault((f["name"], f["version"]), []).append(f)
+
+    rows = []
+    for c in sbom.get("components", []):
+        row = {
+            "name": c.get("name"),
+            "version": c.get("version"),
+            "type": c.get("type"),
+            "purl": c.get("purl"),
+            "vuln_count": None,
+            "severity": "Not checked",
+            "rank": -2,
+        }
+        if c.get("purl") or c.get("cpe"):
+            # purl first; fall back to name+version in case the purl text differs
+            matches = by_purl.get(c.get("purl")) or by_name_version.get(
+                (c.get("name"), c.get("version")), []
+            )
+            worst = max((m["severity"] for m in matches), key=lambda s: RANK.get(s, 0)) if matches else "None"
+            row.update(vuln_count=len(matches), severity=worst, rank=RANK.get(worst, 0))
+        rows.append(row)
+    return rows

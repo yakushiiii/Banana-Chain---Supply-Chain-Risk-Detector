@@ -1,0 +1,12 @@
+cyclonedx-python-lib[json-validation]
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+httpx2
+pytest
+ruff
+redis
+pytest
+python-multipart
+requests

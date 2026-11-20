@@ -1,12 +1,16 @@
-import re, subprocess, tempfile, uuid, shutil
-import run_syft
+import json
+import re
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
-import run_syft, run_grype
+
+import run_syft
+import app.run_grype as run_grype
 
 app = FastAPI(title="Banana Chain: Supply Chain Risk Detector")
 templates = Jinja2Templates(directory="templates")
@@ -20,15 +24,19 @@ def error_page(request: Request, message: str):
 def home(request: Request):
     return templates.TemplateResponse(request, "main.html")
 
+@app.get("/health")
+def health():
+    return {"api": "ok", "db": "ok"}
+
 @app.post("/results")
 def results(
     request: Request,
-    url: str | None = Form(None), 
-    files: list[UploadFile] = File([])
+    url: Annotated[str | None, Form()] = None, 
+    files: Annotated[list[UploadFile] | None, File()] = None,
     ):
     # Browsers send an emtpy "file" when nothing was picked, so filter those out
 
-    files = [f for f in files if f.filename]
+    files = [f for f in (files or []) if f.filename]
     url = url.strip() if url else None
 
     if not url and not files:
@@ -59,7 +67,7 @@ def results(
                 return error_page(request, "There was an error with your respository. Must use a public repository, if repository must remain private try uploading project files instead.")
         try:
             sbom = run_syft.generate_sbom(tmp_dir)
-        except Exception as e:
+        except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError) as e:
             print("Syft failed:", e)
             return error_page(request, "There was an unforeseen error with one or more of your files.")
 
@@ -71,12 +79,11 @@ def results(
                 request, "results.html",
                 {"sbom": sbom, "vulns": vulns, "findings_text": findings_text},
             )
+        
         except run_grype.GrypeError as e:
             print("Grype failed:", e)
             return error_page(request, "There was an unforeseen error with one or more of your files (Grype).")
-        
-        return templates.TemplateResponse(request, "results.html", {"sbom": sbom, "vulns": vulns})
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, port=5000)
+    uvicorn.run(app, host="127.0.0.1", port=5000)
