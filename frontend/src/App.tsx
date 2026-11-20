@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchHealth, type HealthResponse } from './api/health'
-import { scanRepo, type ScanResult } from './api/scan'
+import { getScanStatus, scanRepo, type ScanResult } from './api/scan'
 import ResultsTable from './ResultsTable'
 import SecuritySummary from './SecuritySummary'
 
@@ -39,6 +39,8 @@ export default function App() {
   const [scannedTarget, setScannedTarget] = useState<string | null>(null)
   const [scanError, setScanError] = useState<string | null>(null)
   const [scanning, setScanning] = useState(false)
+  const [scanStatus, setScanStatus] = useState<'queued' | 'running' | 'done' | 'failed' | null>(null)
+  const [scanPhase, setScanPhase] = useState<string | null>(null)
 
   useEffect(() => {
     const check = () =>
@@ -76,15 +78,33 @@ export default function App() {
     }
 
     setScanning(true)
+    setScanStatus('queued')
+    setScanPhase(null)
     const target = activeTab === 'github' ? githubUrl.trim() : `${selectedFiles?.length ?? 1} uploaded file(s)`
     try {
-      const res = await scanRepo(
+      const submission = await scanRepo(
         activeTab === 'github' ? { url: githubUrl.trim() } : { files: selectedFiles! },
       )
-      setResult(res)
       setScannedTarget(target)
+
+      let finished = false
+      while (!finished) {
+        const status = await getScanStatus(submission.task_id)
+        setScanStatus(status.status)
+        setScanPhase(status.phase ?? null)
+
+        if (status.status === 'done' && status.result) {
+          setResult(status.result)
+          finished = true
+        } else if (status.status === 'failed') {
+          throw new Error(status.error ?? 'Scan failed.')
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, POLL_MS))
+        }
+      }
     } catch (err) {
       setScanError((err as Error).message)
+      setScanStatus('failed')
     } finally {
       setScanning(false)
     }
@@ -111,7 +131,7 @@ export default function App() {
               type="button"
               onClick={() => {
                 setActiveTab('github')
-                { setResult(null); setScanError(null) }
+                { setResult(null); setScanError(null); setScanStatus(null); setScanPhase(null) }
               }}
               className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${
                 activeTab === 'github'
@@ -125,7 +145,7 @@ export default function App() {
               type="button"
               onClick={() => {
                 setActiveTab('upload')
-                { setResult(null); setScanError(null) }
+                { setResult(null); setScanError(null); setScanStatus(null); setScanPhase(null) }
               }}
               className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${
                 activeTab === 'upload'
@@ -227,6 +247,37 @@ export default function App() {
               {scanError}
             </div>
           )}
+
+          {scanStatus && (
+            <div className={`mt-4 rounded-lg border p-4 ${
+              scanStatus === 'failed'
+                ? 'border-red-200 bg-red-50'
+                : scanStatus === 'done'
+                  ? 'border-green-200 bg-green-50'
+                  : 'border-indigo-100 bg-indigo-50'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Scan status</p>
+                  <p className="mt-0.5 text-xs text-gray-600">
+                    {scanStatus === 'queued' && 'Waiting for a worker…'}
+                    {scanStatus === 'running' && (scanPhase ? `${scanPhase.charAt(0).toUpperCase()}${scanPhase.slice(1)}…` : 'Processing…')}
+                    {scanStatus === 'done' && 'Scan completed successfully.'}
+                    {scanStatus === 'failed' && 'Scan failed.'}
+                  </p>
+                </div>
+                <span className={`rounded-full bg-white px-3 py-1 text-xs font-semibold ring-1 ring-inset ${
+                  scanStatus === 'failed'
+                    ? 'text-red-700 ring-red-600/20'
+                    : scanStatus === 'done'
+                      ? 'text-green-700 ring-green-600/20'
+                      : 'text-indigo-700 ring-indigo-600/20'
+                }`}>
+                  {scanStatus.charAt(0).toUpperCase() + scanStatus.slice(1)}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Results Section */}
@@ -247,6 +298,8 @@ export default function App() {
                   setResult(null)
                   setScannedTarget(null)
                   setScanError(null)
+                  setScanStatus(null)
+                  setScanPhase(null)
                 }}
                 className="text-xs font-medium text-gray-500 underline hover:text-gray-700"
               >
