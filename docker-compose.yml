@@ -29,6 +29,20 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+  
+  celery_worker:
+    image: celery #TODO: replace with backend build from task #9
+    command: celery -A app.workers.celery_app worker --loglevel=info
+    volumes:
+      - .:/app
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - CELERY_SOFT_TIME_LIMIT=300
+      - CELERY_HARD_TIME_LIMIT=360
+    depends_on:
+      redis:
+        condition: service_healthy
 
   frontend:
     image: node:24
