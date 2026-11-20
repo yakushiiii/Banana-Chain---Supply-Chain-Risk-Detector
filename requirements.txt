@@ -8,3 +8,4 @@ psycopg[binary]
 pytest
 pydantic-settings
 psutil
+celery[redis]
