@@ -9,6 +9,7 @@ import requests
 MAX_MB = 500
 GITHUB_URL = re.compile(r"https://github[.]com/([A-Za-z0-9-]+)[/]([A-Za-z0-9-._]+?)(?:[.]git)?/?")
 TIMEOUT = 120
+GIT = ["git"]
 
 class CloneError(Exception):
     """Exception raised for failed repo clone"""
@@ -64,7 +65,7 @@ def clone_repo(ctx, max_mb=MAX_MB, timeout=TIMEOUT, token=None):
 
     dest = str(ctx.workspace_path)
 
-    cmd = ["git", "clone", "--depth", "1", "--single-branch", "--no-tags", "--no-recurse-submodules", "--", f"https://github.com/{owner}/{repo}.git", dest]
+    cmd = [*GIT, "clone", "--depth", "1", "--single-branch", "--no-tags", "--no-recurse-submodules", "--", f"https://github.com/{owner}/{repo}.git", dest]
 
     env = os.environ.copy()
     env["GIT_TERMINAL_PROMPT"] = "0"
@@ -72,10 +73,13 @@ def clone_repo(ctx, max_mb=MAX_MB, timeout=TIMEOUT, token=None):
         proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
         _, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired as e:
-        try:
-            os.killpg(proc.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True)
+        else:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL) 
+            except ProcessLookupError:
+                pass
         proc.communicate()
 
         shutil.rmtree(dest, ignore_errors=True)
@@ -85,7 +89,7 @@ def clone_repo(ctx, max_mb=MAX_MB, timeout=TIMEOUT, token=None):
         shutil.rmtree(dest, ignore_errors=True)
         raise CloneError(f"failed: {stderr[:500]}", 502)
 
-    sha_cmd = ["git", "-C", dest, "rev-parse", "HEAD"]
+    sha_cmd = [*GIT, "-C", dest, "rev-parse", "HEAD"]
     sha_result = subprocess.run(sha_cmd, env=env, capture_output=True, text=True, timeout=timeout, check=False)
 
     if sha_result.returncode != 0:

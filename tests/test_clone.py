@@ -1,11 +1,14 @@
 import os
 import re
 import subprocess
+import sys
+import textwrap
 import time
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
+import psutil
 import pytest
 import requests
 
@@ -42,21 +45,19 @@ def make_ctx(tmp_path, url):
     return ScanContext(scan_id=scan_id, repo_url=url, workspace_path=tmp_path / str(scan_id))
 
 
-def make_fake_git(tmp_path, script):
-    """Put a fake `git` executable first on PATH. Returns its folder."""
-    bin_dir = tmp_path / "fakebin"
-    bin_dir.mkdir()
-    git = bin_dir / "git"
-    git.write_text("#!/bin/sh\n" + script)
-    git.chmod(0o755)
-    return bin_dir
+def make_fake_git(tmp_path, monkeypatch, script):
+    """Replace git with a small Python script. Works on Windows, macOS and Linux."""
+    fake = tmp_path / "fake_git.py"
+    fake.write_text(textwrap.dedent(script))
+    monkeypatch.setattr(clone, "GIT", [sys.executable, str(fake)])
 
 
 def process_is_dead(pid):
-    """True if pid is gone or a zombie (killed but not yet reaped). Works on macOS and Linux."""
-    out = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True, check=False)
-    stat = out.stdout.strip()
-    return stat == "" or stat.startswith("Z")
+    """True if pid is gone or a zombie (killed but not yet reaped)."""
+    try:
+        return psutil.Process(pid).status() == psutil.STATUS_ZOMBIE
+    except psutil.NoSuchProcess:
+        return True
 
 
 # ---------- 1. URL parsing ----------
@@ -208,8 +209,12 @@ def test_small_public_repo_clones_and_records_sha(monkeypatch, tmp_path):
 def test_failed_clone_raises_and_cleans_up(monkeypatch, tmp_path):
     monkeypatch.setattr(clone, "check_repo", lambda *a, **k: None)
     # Fake git: creates the destination folder, then fails like a real clone error would.
-    bin_dir = make_fake_git(tmp_path, 'for last; do :; done\nmkdir -p "$last"\necho "fatal: boom" >&2\nexit 128\n')
-    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    make_fake_git(tmp_path, monkeypatch, """
+        import os, sys
+        os.makedirs(sys.argv[-1], exist_ok=True)
+        print("fatal: boom", file=sys.stderr)
+        sys.exit(128)
+    """)
     ctx = make_ctx(tmp_path, "https://github.com/octocat/Hello-World")
 
     with pytest.raises(CloneError) as exc_info:
@@ -224,8 +229,13 @@ def test_hung_clone_is_killed_at_timeout(monkeypatch, tmp_path):
     monkeypatch.setattr(clone, "check_repo", lambda *a, **k: None)
     pid_file = tmp_path / "child.pid"
     # Fake git that hangs and starts a hanging child, like git-remote-https on a stalled network.
-    bin_dir = make_fake_git(tmp_path, f'sleep 15 &\necho $! > "{pid_file}"\nsleep 15\n')
-    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    make_fake_git(tmp_path, monkeypatch, f"""
+        import subprocess, sys, time
+        child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(15)"])
+        with open({str(pid_file)!r}, "w") as f:
+            f.write(str(child.pid))
+        time.sleep(15)
+    """)
     ctx = make_ctx(tmp_path, "https://github.com/octocat/Hello-World")
 
     start = time.monotonic()
@@ -243,3 +253,15 @@ def test_hung_clone_is_killed_at_timeout(monkeypatch, tmp_path):
             break
         time.sleep(0.1)
     assert process_is_dead(child_pid), "git's child process should be killed too"
+
+# Tests for app/services/clone.py. Runs on Windows, macOS and Linux.
+#
+# Before running:
+#   1. pip install -r requirements.txt   (includes psutil, which these tests need)
+#   2. Set POSTGRES_USER, POSTGRES_PASSWORD and POSTGRES_DB (any values work);
+#      app settings fail to load without them.
+#        Windows (PowerShell): $env:POSTGRES_USER="x"; $env:POSTGRES_PASSWORD="x"; $env:POSTGRES_DB="x"
+#        macOS/Linux:          export POSTGRES_USER=x POSTGRES_PASSWORD=x POSTGRES_DB=x
+#   3. pytest tests/test_clone.py
+#
+# test_small_public_repo_clones_and_records_sha does a real clone, so it needs internet.
