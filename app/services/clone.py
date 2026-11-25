@@ -25,7 +25,7 @@ class CloneError(Exception):
 def parse_github_url(url):
     cleaned_url= GITHUB_URL.fullmatch(url.strip())
     if not cleaned_url:
-        raise(CloneError(f"Invalid Github repo: {url!r}.", 400))
+        raise CloneError(f"Enter a valid GitHub URL, like https://github.com/owner/repo. Got: {url!r}", 400)
     owner = cleaned_url.group(1)
     repo = cleaned_url.group(2)
     return (owner, repo)

@@ -17,6 +17,7 @@ from pydantic import ValidationError
 
 from app import run_grype, run_syft
 from app.schemas import ScanContext
+from app.services.build_detect import detect_build
 from app.services.clone import CloneError, clone_repo
 
 app = FastAPI(title="Banana Chain: Supply Chain Risk Detector")
@@ -32,18 +33,23 @@ class ScanError(Exception):
         self.status_code = status_code
 
 
-def scan_project(url: str | None, files: list[UploadFile] | None) -> tuple[dict, list[dict]]:
-    """Shared by /results and /api/scan: save or clone, run Syft, run Grype.
+def scan_project(
+    url: str | None,
+    files: list[UploadFile] | None,
+) -> tuple[dict, list[dict]]:
+    """Shared by /results and /api/scan.
 
+    Save or clone, detect the build system, run Syft, and run Grype.
     Returns (sbom, findings). Raises ScanError with a user-friendly message.
     """
-    # Browsers send an empty "file" when nothing was picked, so filter those out
+    # Browsers send an empty file when nothing was picked.
     files = [f for f in (files or []) if f.filename]
     url = url.strip() if url else None
     scan_id = uuid.uuid4()
 
     if not url and not files:
         raise ScanError("Enter a URL or upload files.", 400)
+
     if url and files:
         raise ScanError("Choose either a URL or upload files.", 400)
 
@@ -55,35 +61,60 @@ def scan_project(url: str | None, files: list[UploadFile] | None) -> tuple[dict,
                 dest = tmp_dir / Path(f.filename).name
                 with open(dest, "wb") as out:
                     shutil.copyfileobj(f.file, out)
+
+            ctx = ScanContext(
+                scan_id=scan_id,
+                workspace_path=tmp_dir,
+            )
+            ctx.build_system = detect_build(ctx.workspace_path)
+
         else:
             try:
-                ctx = ScanContext(scan_id=scan_id, repo_url=url, workspace_path=tmp_dir / str(scan_id))
+                ctx = ScanContext(
+                    scan_id=scan_id,
+                    repo_url=url,
+                    workspace_path=tmp_dir / str(scan_id),
+                )
                 clone_repo(ctx)
+                ctx.build_system = detect_build(ctx.workspace_path)
+
             except ValidationError as e:
                 raise ScanError(
-                    "Enter a valid GitHub repo URL, like https://github.com/owner/repo.", 400
+                    "Enter a valid GitHub repo URL, like https://github.com/owner/repo.",
+                    400,
                 ) from e
+
             except CloneError as e:
                 print("Clone failed:", e)
                 raise ScanError(e.message, e.error_code) from e
 
         try:
             sbom = run_syft.generate_sbom(tmp_dir)
-        except Exception as e:  # noqa: BLE001 - last-resort handler so users see an error page, not a 500
+
+        except Exception as e:
             print("Syft failed:", e)
-            raise ScanError("There was an unforeseen error with one or more of your files.") from e
+            raise ScanError(
+                "There was an unforeseen error with one or more of your files."
+            ) from e
 
         try:
             findings = run_grype.scan_sbom(sbom)
+
         except run_grype.GrypeError as e:
             print("Grype failed:", e)
-            raise ScanError("We couldn't check this project for vulnerabilities. Please try again.") from e
+            raise ScanError(
+                "We couldn't check this project for vulnerabilities. Please try again."
+            ) from e
 
     return sbom, findings
 
 
 def error_page(request: Request, message: str):
-    return templates.TemplateResponse(request, "main.html", {"error": message})
+    return templates.TemplateResponse(
+        request,
+        "main.html",
+        {"error": message},
+    )
 
 
 @app.get("/")
@@ -104,17 +135,19 @@ def results(
 ):
     try:
         sbom, findings = scan_project(url, files)
+
     except ScanError as e:
         return error_page(request, e.message)
 
     rows = run_grype.rows_from_findings(sbom, findings)
+
     return templates.TemplateResponse(
         request,
         "results.html",
         {
             "sbom": sbom,
             "rows": rows,
-            "vulns_ok": True,  # Grype failures return an error page, so reaching here means it worked
+            "vulns_ok": True,
             "vulns": findings,
             "findings_text": run_grype.format_findings(findings),
         },
@@ -128,10 +161,12 @@ def api_scan(
 ):
     try:
         sbom, findings = scan_project(url, files)
+
     except ScanError as e:
         raise HTTPException(e.status_code, e.message) from e
 
     rows = run_grype.rows_from_findings(sbom, findings)
+
     return {
         "component_count": len(rows),
         "vulns_ok": True,
