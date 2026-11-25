@@ -3,9 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from app.services.build_detect import detect_build, pick_primary
 from app.schemas import BuildSystem
-
+from app.services.build_detect import detect_build, pick_primary
 
 # ---------- helpers ----------
 

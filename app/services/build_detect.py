@@ -1,4 +1,4 @@
-import os 
+import os
 from pathlib import Path
 
 from app.schemas import BuildDetection, BuildSystem
@@ -51,9 +51,8 @@ def detect_build(repo_path, max_depth=6, max_files=50000):
             rel = full.relative_to(repo_path) # path relative to the user repo root
             ext = Path(file).suffix.lower()
 
-            if not has_c_cpp_sources:
-                if ext in C_CPP_EXTENSIONS: 
-                    has_c_cpp_sources = True
+            if not has_c_cpp_sources and ext in C_CPP_EXTENSIONS: 
+                has_c_cpp_sources = True
 
             if file in CONFIGURE_SCRIPTS:
                 configure_scripts.append(rel.as_posix())

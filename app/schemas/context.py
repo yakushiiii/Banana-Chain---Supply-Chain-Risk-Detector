@@ -2,6 +2,7 @@ from pathlib import Path
 from uuid import UUID
 
 from pydantic import BaseModel, HttpUrl
+
 from .build import BuildDetection
 
 

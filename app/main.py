@@ -18,8 +18,8 @@ from pydantic import ValidationError
 import run_syft
 import vulns
 from app.schemas import ScanContext
-from app.services.clone import CloneError, clone_repo
 from app.services.build_detect import detect_build
+from app.services.clone import CloneError, clone_repo
 
 app = FastAPI(title="Banana Chain: Supply Chain Risk Detector")
 templates = Jinja2Templates(directory="templates")

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 
+
 class BuildSystem(BaseModel):
     build_system: str
     markerfile_path: str
