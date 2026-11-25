@@ -1,15 +1,15 @@
 ---
-id: US-84-T-1
-story: US-84
+id: US-6-T-1
+story: US-6
 sprint: 3
 assignee: Sofia Yakushi
-estimate_hours: 5
+estimate_hours: 8
 ---
 
 # Detect C/C++ build system
 
 ## Description
-Serves User Story #84 (Upload and scan C/C++ projects / Issue #61). After a repo is cloned or uploaded, this task inspects it by file names only to find which C/C++ build system it uses, along with configure scripts, package manifests, and whether it contains C/C++ source files. The result is stored on `ScanContext.build_system` for later tasks: Makefile parsing (#79), CMakeLists parsing (#62), and the sandboxed build runner (#63).
+Serves User Story #6 (Upload and scan C/C++ projects / Issue #61). After a repo is cloned or uploaded, this task inspects it by file names only to find which C/C++ build system it uses, along with configure scripts, package manifests, and whether it contains C/C++ source files. The result is stored on `ScanContext.build_system` for later tasks: Makefile parsing (#79), CMakeLists parsing (#62), and the sandboxed build runner (#63).
 
 Parsing build files, running builds, and executing anything from the repo are out of scope (#63 handles builds).
 
