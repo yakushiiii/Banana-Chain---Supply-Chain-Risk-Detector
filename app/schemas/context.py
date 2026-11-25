@@ -2,6 +2,7 @@ from pathlib import Path
 from uuid import UUID
 
 from pydantic import BaseModel, HttpUrl
+from .build import BuildDetection
 
 
 class ScanContext(BaseModel):
@@ -15,3 +16,5 @@ class ScanContext(BaseModel):
 
     # Not available until the repository has been cloned.
     commit_sha: str | None = None
+
+    build_system: BuildDetection | None = None
