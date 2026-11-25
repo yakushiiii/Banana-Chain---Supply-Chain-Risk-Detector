@@ -25,7 +25,7 @@ class CloneError(Exception):
 def parse_github_url(url):
     cleaned_url= GITHUB_URL.fullmatch(url.strip())
     if not cleaned_url:
-        raise(CloneError(f"Invalid Github repo: {url!r}.", 400))
+        raise CloneError(f"Enter a valid GitHub URL, like https://github.com/owner/repo. Got: {url!r}", 400)
     owner = cleaned_url.group(1)
     repo = cleaned_url.group(2)
     return (owner, repo)
@@ -74,7 +74,7 @@ def clone_repo(ctx, max_mb=MAX_MB, timeout=TIMEOUT, token=None):
         _, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired as e:
         if os.name == "nt":
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True)
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, check=False)
         else:
             try:
                 os.killpg(proc.pid, signal.SIGKILL) 
