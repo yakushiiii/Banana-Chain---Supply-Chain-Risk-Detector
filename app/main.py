@@ -18,6 +18,7 @@ from pydantic import ValidationError
 import run_syft
 import vulns
 from app.schemas import ScanContext
+from app.services.build_detect import detect_build
 from app.services.clone import CloneError, clone_repo
 
 app = FastAPI(title="Banana Chain: Supply Chain Risk Detector")
@@ -59,10 +60,13 @@ def results(
                 dest = tmp_dir / Path(f.filename).name
                 with open(dest, "wb") as out:
                     shutil.copyfileobj(f.file, out)
+            ctx = ScanContext(scan_id=scan_id, workspace_path=tmp_dir)
+            ctx.build_system = detect_build(ctx.workspace_path)
         else:
             try:
                 ctx = ScanContext(scan_id=scan_id, repo_url=url, workspace_path=tmp_dir / str(scan_id))
                 clone_repo(ctx)
+                ctx.build_system = detect_build(ctx.workspace_path)
             except ValidationError: 
                 return error_page(request, "Enter a valid GitHub repo URL, like https://github.com/owner/repo.")
             except (CloneError) as e:
@@ -101,10 +105,13 @@ def api_scan(
                 dest = tmp_dir / Path(f.filename).name
                 with open(dest, "wb") as out:
                     shutil.copyfileobj(f.file, out)
+            ctx = ScanContext(scan_id=scan_id, workspace_path=tmp_dir)
+            ctx.build_system = detect_build(ctx.workspace_path)
         else:
             try:
                 ctx = ScanContext(scan_id=scan_id, repo_url=url, workspace_path=tmp_dir / str(scan_id))
                 clone_repo(ctx)
+                ctx.build_system = detect_build(ctx.workspace_path)
             except ValidationError as e:
                 raise HTTPException(400, "Enter a valid GitHub repo URL.") from e
             except CloneError as e:
