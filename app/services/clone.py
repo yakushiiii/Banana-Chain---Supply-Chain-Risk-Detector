@@ -74,7 +74,7 @@ def clone_repo(ctx, max_mb=MAX_MB, timeout=TIMEOUT, token=None):
         _, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired as e:
         if os.name == "nt":
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True)
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, check=False)
         else:
             try:
                 os.killpg(proc.pid, signal.SIGKILL) 
