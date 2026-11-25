@@ -40,6 +40,9 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/banana_chain_test
       REDIS_URL: redis://localhost:6379/0
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: banana_chain_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -53,6 +56,11 @@ jobs:
       - name: lint app package
         working-directory: .
         run: ruff check app tests
+      - name: install app requirements
+        working-directory: .
+        run: pip install -r requirements.txt
+      - name: create app test database
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE banana_test"
       - name: test app package
         working-directory: .
         run: python -m pytest tests
