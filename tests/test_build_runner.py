@@ -5,7 +5,12 @@ import pytest
 
 from app.schemas import BuildDetection
 from app.services import build_runner
-from app.services.build_runner import IMAGE_NAME, choose_commands, docker_args, run_build
+from app.services.build_runner import (
+    IMAGE_NAME,
+    choose_commands,
+    docker_args,
+    run_build,
+)
 
 HELLO_C = '#include <stdio.h>\nint main(void) { printf("hello from the sandbox\\n"); return 0; }\n'
 CMAKE_LISTS = "cmake_minimum_required(VERSION 3.10)\nproject(hello C)\nadd_executable(hello main.c)\n"
