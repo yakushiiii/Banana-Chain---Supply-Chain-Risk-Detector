@@ -5,7 +5,7 @@ from app.schemas import BuildDetection, BuildSystem
 
 """Detect C/C++ build systems in a repo by file names only. Never runs anything from the repo."""
 
-POSSIBLE_MARKERFILES = { 
+POSSIBLE_MARKERFILES = {
     "autotools": ["configure.ac", "configure.in", "Makefile.am"],
     "cmake": ["CMakeLists.txt"],
     "meson": ["meson.build"],
@@ -38,7 +38,7 @@ def detect_build(repo_path, max_depth=6, max_files=50000):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
         depth = len(Path(root).relative_to(repo_path).parts)
 
-        if depth >= max_depth: 
+        if depth >= max_depth:
             dirnames[:] = []
 
         for file in filenames:
@@ -51,7 +51,7 @@ def detect_build(repo_path, max_depth=6, max_files=50000):
             rel = full.relative_to(repo_path) # path relative to the user repo root
             ext = Path(file).suffix.lower()
 
-            if not has_c_cpp_sources and ext in C_CPP_EXTENSIONS: 
+            if not has_c_cpp_sources and ext in C_CPP_EXTENSIONS:
                 has_c_cpp_sources = True
 
             if file in CONFIGURE_SCRIPTS:
@@ -59,7 +59,7 @@ def detect_build(repo_path, max_depth=6, max_files=50000):
                 continue
             elif file in PACKAGE_MANIFESTS:
                 pkg_managers.append(rel.as_posix())
-                continue               
+                continue
 
             for build_system, markerfiles in POSSIBLE_MARKERFILES.items():
                 if file in markerfiles:
@@ -74,16 +74,16 @@ def detect_build(repo_path, max_depth=6, max_files=50000):
     primary = pick_primary(build_system_models, has_c_cpp_sources)
 
     return BuildDetection(
-        primary=primary, 
-        detected=build_system_models, 
-        configure_scripts=configure_scripts, 
-        package_managers=pkg_managers, 
-        has_c_cpp_sources=has_c_cpp_sources, 
+        primary=primary,
+        detected=build_system_models,
+        configure_scripts=configure_scripts,
+        package_managers=pkg_managers,
+        has_c_cpp_sources=has_c_cpp_sources,
         truncated=truncated
         )
 
 def pick_primary(matches, has_c_cpp_sources):
-    if not matches or not has_c_cpp_sources: 
+    if not matches or not has_c_cpp_sources:
         return None
 
     best = min(matches, key=lambda m: ((len(Path(m.markerfile_path).parts) - 1), (BUILD_PRIORITY[m.build_system])))

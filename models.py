@@ -2,7 +2,16 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
-    CheckConstraint, DateTime, Float, ForeignKey, Index, MetaData, String, Text, func, text,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    MetaData,
+    String,
+    Text,
+    func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
