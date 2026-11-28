@@ -63,6 +63,7 @@ jobs:
         run: python -m ruff check .
 
       - name: Build sandbox image
+        if: ${{ hashFiles('docker/builder/Dockerfile') != '' }}
         run: docker build -t banana-builder docker/builder
 
       - name: Run backend tests
