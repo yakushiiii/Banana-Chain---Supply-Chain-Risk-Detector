@@ -1,114 +1,181 @@
-import re, subprocess, tempfile, uuid, shutil
-import run_syft
-import vulns
+import shutil
+import tempfile
+import uuid
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import (
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+from pydantic import ValidationError
+
+from app import run_grype, run_syft
+from app.schemas import ScanContext
+from app.services.build_detect import detect_build
+from app.services.clone import CloneError, clone_repo
 
 app = FastAPI(title="Banana Chain: Supply Chain Risk Detector")
 templates = Jinja2Templates(directory="templates")
 
-GITHUB_RE = re.compile(r"^https://github\.com/[\w.-]+/[\w.-]+?(\.git)?/?$")
+
+class ScanError(Exception):
+    """Something went wrong during a scan."""
+
+    def __init__(self, message: str, status_code: int = 500) -> None:
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+
+
+def scan_project(
+    url: str | None,
+    files: list[UploadFile] | None,
+) -> tuple[dict, list[dict]]:
+    """Shared by /results and /api/scan.
+
+    Save or clone, detect the build system, run Syft, and run Grype.
+    Returns (sbom, findings). Raises ScanError with a user-friendly message.
+    """
+    # Browsers send an empty file when nothing was picked.
+    files = [f for f in (files or []) if f.filename]
+    url = url.strip() if url else None
+    scan_id = uuid.uuid4()
+
+    if not url and not files:
+        raise ScanError("Enter a URL or upload files.", 400)
+
+    if url and files:
+        raise ScanError("Choose either a URL or upload files.", 400)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_dir = Path(tmp)
+
+        if files:
+            for f in files:
+                dest = tmp_dir / Path(f.filename).name
+                with open(dest, "wb") as out:
+                    shutil.copyfileobj(f.file, out)
+
+            ctx = ScanContext(
+                scan_id=scan_id,
+                workspace_path=tmp_dir,
+            )
+            ctx.build_system = detect_build(ctx.workspace_path)
+
+        else:
+            try:
+                ctx = ScanContext(
+                    scan_id=scan_id,
+                    repo_url=url,
+                    workspace_path=tmp_dir / str(scan_id),
+                )
+                clone_repo(ctx)
+                ctx.build_system = detect_build(ctx.workspace_path)
+
+            except ValidationError as e:
+                raise ScanError(
+                    "Enter a valid GitHub repo URL, like https://github.com/owner/repo.",
+                    400,
+                ) from e
+
+            except CloneError as e:
+                print("Clone failed:", e)
+                raise ScanError(e.message, e.error_code) from e
+
+        try:
+            sbom = run_syft.generate_sbom(tmp_dir)
+
+        except Exception as e:
+            print("Syft failed:", e)
+            raise ScanError(
+                "There was an unforeseen error with one or more of your files."
+            ) from e
+
+        try:
+            findings = run_grype.scan_sbom(sbom)
+
+        except run_grype.GrypeError as e:
+            print("Grype failed:", e)
+            raise ScanError(
+                "We couldn't check this project for vulnerabilities. Please try again."
+            ) from e
+
+    return sbom, findings
+
 
 def error_page(request: Request, message: str):
-    return templates.TemplateResponse(request, "main.html", {"error": message})
+    return templates.TemplateResponse(
+        request,
+        "main.html",
+        {"error": message},
+    )
+
 
 @app.get("/")
 def home(request: Request):
     return templates.TemplateResponse(request, "main.html")
 
+
+@app.get("/health")
+def health():
+    return {"api": "ok", "db": "ok"}
+
+
 @app.post("/results")
 def results(
     request: Request,
-    url: str | None = Form(None),
-    files: list[UploadFile] = File([])
-    ):
-    # Browsers send an emtpy "file" when nothing was picked, so filter those out
+    url: Annotated[str | None, Form()] = None,
+    files: Annotated[list[UploadFile] | None, File()] = None,
+):
+    try:
+        sbom, findings = scan_project(url, files)
 
-    files = [f for f in files if f.filename]
-    url = url.strip() if url else None
+    except ScanError as e:
+        return error_page(request, e.message)
 
-    if not url and not files:
-        return error_page(request, "Enter a URL or upload files.")
-    if url and files:
-        return error_page(request, "Choose either a URL or upload files.")
-    if url and not GITHUB_RE.match(url):
-        return error_page(request, "Enter a valid URL or upload files.")
+    rows = run_grype.rows_from_findings(sbom, findings)
 
+    return templates.TemplateResponse(
+        request,
+        "results.html",
+        {
+            "sbom": sbom,
+            "rows": rows,
+            "vulns_ok": True,
+            "vulns": findings,
+            "findings_text": run_grype.format_findings(findings),
+        },
+    )
 
-
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_dir = Path(tmp)
-
-        if files:
-            for f in files:
-                dest = tmp_dir / Path(f.filename).name
-                with open(dest, "wb") as out:
-                    shutil.copyfileobj(f.file, out)
-        else:
-            try:
-                subprocess.run(
-                    ["git", "clone", "--depth", "1", url, str(tmp_dir / "repo")],
-                    check=True, timeout=60,
-                )
-            except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-                print("Clone failed:", e)
-                return error_page(request, "There was an error with your respository. Must use a public repository, if repository must remain private try uploading project files instead.")
-        try:
-            sbom = run_syft.generate_sbom(tmp_dir)
-        except Exception as e:
-            print("Syft failed:", e)
-            return error_page(request, "There was an unforeseen error with one or more of your files.")
-
-        rows, vulns_ok = vulns.build_rows(sbom)
-        return templates.TemplateResponse(
-            request, "results.html", {"sbom": sbom, "rows": rows, "vulns_ok": vulns_ok}
-        )
 
 @app.post("/api/scan")
 def api_scan(
-    url: str | None = Form(None),
-    files: list[UploadFile] = File([]),
+    url: Annotated[str | None, Form()] = None,
+    files: Annotated[list[UploadFile] | None, File()] = None,
 ):
-    files = [f for f in files if f.filename]
-    url = url.strip() if url else None
+    try:
+        sbom, findings = scan_project(url, files)
 
-    if not url and not files:
-        raise HTTPException(400, "Enter a URL or upload files.")
-    if url and files:
-        raise HTTPException(400, "Choose either a URL or upload files.")
-    if url and not GITHUB_RE.match(url):
-        raise HTTPException(400, "Enter a valid GitHub URL or upload files.")
+    except ScanError as e:
+        raise HTTPException(e.status_code, e.message) from e
 
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_dir = Path(tmp)
+    rows = run_grype.rows_from_findings(sbom, findings)
 
-        if files:
-            for f in files:
-                dest = tmp_dir / Path(f.filename).name
-                with open(dest, "wb") as out:
-                    shutil.copyfileobj(f.file, out)
-        else:
-            try:
-                subprocess.run(
-                    ["git", "clone", "--depth", "1", url, str(tmp_dir / "repo")],
-                    check=True, timeout=60,
-                )
-            except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-                print("Clone failed:", e)
-                raise HTTPException(400, "Could not clone that repository. It must be public.")
-        try:
-            sbom = run_syft.generate_sbom(tmp_dir)
-        except Exception as e:
-            print("Syft failed:", e)
-            raise HTTPException(500, "Syft could not scan these files.")
+    return {
+        "component_count": len(rows),
+        "vulns_ok": True,
+        "components": rows,
+        "findings": findings,
+    }
 
-    rows, vulns_ok = vulns.build_rows(sbom)
-    return {"component_count": len(rows), "vulns_ok": vulns_ok, "components": rows}
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, port=5000)

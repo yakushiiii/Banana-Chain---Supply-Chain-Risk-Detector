@@ -100,14 +100,45 @@ Fields:
 - repo_url: Optional HTTP URL
 - workspace_path: Path
 - commit_sha: Optional string
+- build_system: Optional BuildDetection, defaulting to None
+  (set by build system detection once the workspace is ready)
 
-### 6. Package Structure
+### 6. BuildSystem and BuildDetection
+
+BuildSystem represents one build system marker file found
+in a repository.
+
+Fields:
+
+- build_system: Required string (autotools, cmake, meson,
+  bazel, scons, msbuild, or make)
+- markerfile_path: Required string, relative to the
+  repository root, using forward slashes
+
+BuildDetection represents the full result of build system
+detection for a scan.
+
+Fields:
+
+- primary: Optional string, the build system chosen to
+  build the project
+- detected: List of BuildSystem
+- configure_scripts: List of strings (relative paths)
+- package_managers: List of strings (relative paths)
+- has_c_cpp_sources: Boolean, defaulting to false
+- truncated: Boolean, defaulting to false
+
+Detection inspects file names only and never executes
+anything from the repository.
+
+### 7. Package Structure
 
 Shared schemas will live in the following directory:
 
 app/
 schemas/
 **init**.py
+build.py
 component.py
 context.py
 scan.py

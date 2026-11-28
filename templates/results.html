@@ -26,6 +26,17 @@
             {% endfor %}
         </table>
 
+        <h2>Findings ({{ vulns | length }})</h2>
+        {% if findings_text %}
+        <pre style="white-space: pre; overflow-x: auto;">{{ findings_text }}</pre>
+        {% else %}
+        <p>No known vulnerabilities found.</p>
+        {% endif %}
+
+        <a href="data:text/plain;charset=utf-8,{{ findings_text | urlencode }}" download="findings.jsonl">
+        Download findings
+        </a>
+
         <br>
 
         <button type="button" onclick="downloadSBOM()">

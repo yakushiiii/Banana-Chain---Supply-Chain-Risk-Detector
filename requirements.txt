@@ -7,3 +7,11 @@ alembic
 psycopg[binary]
 pytest
 pydantic-settings
+psutil
+
+cyclonedx-python-lib[json-validation]
+uvicorn[standard]
+httpx2
+ruff
+redis
+requests

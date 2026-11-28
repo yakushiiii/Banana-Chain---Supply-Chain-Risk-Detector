@@ -11,3 +11,6 @@ venv/
 .pytest_cache/
 
 ./vscode/
+
+output/
+node_modules/

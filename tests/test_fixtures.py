@@ -8,7 +8,7 @@ import pytest
 from cyclonedx.schema import SchemaVersion
 from cyclonedx.validation.json import JsonStrictValidator
 
-from run_syft import generate_sbom
+from app.run_syft import generate_sbom
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

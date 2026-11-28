@@ -1,18 +1,17 @@
 
-import pytest
-from pydantic import ValidationError
 from pathlib import Path
 from uuid import uuid4
 
-from app.schemas.scan import ScanCreate, ScanRead
-from app.schemas.context import ScanContext
+import pytest
+from pydantic import ValidationError
 
-from app.schemas.scan import ScanStatus
 from app.schemas.component import (
     Component,
-    Confidence,
     ComponentProperty,
+    Confidence,
 )
+from app.schemas.context import ScanContext
+from app.schemas.scan import ScanCreate, ScanRead, ScanStatus
 
 
 def test_scan_status_values():
