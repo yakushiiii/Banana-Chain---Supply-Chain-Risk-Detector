@@ -17,11 +17,17 @@ from app.schemas.scan import ScanCreate, ScanRead, ScanStatus
 def test_scan_status_values():
     assert {status.value for status in ScanStatus} == {
         "queued",
+        "running",
+        "succeeded",
         "cloning",
         "scanning",
         "normalizing",
         "persisting",
+        "checking_files",
+        "matching",
+        "scoring",
         "completed",
+        "partial",
         "failed",
     }
 

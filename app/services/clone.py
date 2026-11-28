@@ -13,9 +13,9 @@ GIT = ["git"]
 
 class CloneError(Exception):
     """Exception raised for failed repo clone"""
-    def __init__(self, message, error_code):    
+    def __init__(self, message, error_code):
         self.message = message
-        self.error_code = error_code    
+        self.error_code = error_code
         super().__init__(self.message)
 
     def __str__(self):
@@ -37,7 +37,7 @@ def check_repo(owner, repo, max_kb, token=None):
         "X-Github-Api-Version": "2022-11-28"
     }
 
-    if token: 
+    if token:
         headers["Authorization"] = f"Bearer {token}"
     try:
         response = requests.get(endpoint, headers = headers, timeout = 10)
@@ -77,7 +77,7 @@ def clone_repo(ctx, max_mb=MAX_MB, timeout=TIMEOUT, token=None):
             subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, check=False)
         else:
             try:
-                os.killpg(proc.pid, signal.SIGKILL) 
+                os.killpg(proc.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
         proc.communicate()
@@ -95,14 +95,7 @@ def clone_repo(ctx, max_mb=MAX_MB, timeout=TIMEOUT, token=None):
     if sha_result.returncode != 0:
         shutil.rmtree(dest, ignore_errors=True)
         raise CloneError(f"Could not read commit SHA: {sha_result.stderr[:200]}", 500)
-    
+
     ctx.commit_sha = sha_result.stdout.strip()
 
     return dest
-
-    
-
-
-
-    
-        

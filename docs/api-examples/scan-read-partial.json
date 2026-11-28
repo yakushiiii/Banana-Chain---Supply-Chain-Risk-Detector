@@ -1,0 +1,9 @@
+{
+  "scan_id": "9bddcb8d-6e2b-49c5-bf84-32c07dc3d81d",
+  "status": "partial",
+  "repo_url": "https://github.com/example/repository",
+  "component_count": 31,
+  "created_at": "2026-11-18T21:00:00Z",
+  "completed_at": "2026-11-18T21:02:00Z",
+  "error_message": "OSV service unavailable; SBOM was saved"
+}
